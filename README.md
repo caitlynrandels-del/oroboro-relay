@@ -27,9 +27,10 @@ Oroboro Relay would have:
 ## Files
 - `index.html` — Self-contained interactive prototype (open in any browser).
 - `oroboro-core.js` — Updated core classes (Nexus, Transcriber, Dictator, Levy, Genesis + RelationalSim) with aviation-specific methods.
-- `OroboroRelayVisionOS.swift` — VisionOS / SwiftUI sketch.
+- `OroboroRelayVisionOS.swift` — Early VisionOS / SwiftUI sketch.
+- `swift/` — **Full native SwiftUI conversion** for VisionOS, iOS, and macOS (open `swift/Package.swift` in Xcode).
 - `UPDATE-ALL-2026-11-14.md` — Update log.
 
-Open `index.html` to interact with the prototype.
+Open `index.html` to interact with the web prototype, or open the `swift` folder in Xcode for the native Apple app.
 
 See also the main [Oroboro](https://github.com/caitlynrandels-del/Oroboro) repository.
