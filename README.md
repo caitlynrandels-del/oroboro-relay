@@ -36,6 +36,6 @@ Open `index.html` to interact with the web prototype, or open the `swift` folder
 
 ## Related Work
 - Main framework: [Oroboro](https://github.com/caitlynrandels-del/Oroboro)
-- **Metastatic Cascade Analysis** (1.21M-run refined study): https://github.com/caitlynrandels-del/metastatic-cascade-analysis
+- **Metastatic Cascade Analysis** (calibrated 1.21-million-run study with dose-response, onset timing, and explicit study-design limitations beyond data mapping): https://github.com/caitlynrandels-del/metastatic-cascade-analysis
 
 See also the main [Oroboro](https://github.com/caitlynrandels-del/Oroboro) repository.
