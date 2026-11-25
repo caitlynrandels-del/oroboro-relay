@@ -30,7 +30,12 @@ Oroboro Relay would have:
 - `OroboroRelayVisionOS.swift` — Early VisionOS / SwiftUI sketch.
 - `swift/` — **Full native SwiftUI conversion** for VisionOS, iOS, and macOS (open `swift/Package.swift` in Xcode).
 - `UPDATE-ALL-2026-11-14.md` — Update log.
+- `metastasis-sim/` — Interactive metastasis heat-trace simulation.
 
 Open `index.html` to interact with the web prototype, or open the `swift` folder in Xcode for the native Apple app.
+
+## Related Work
+- Main framework: [Oroboro](https://github.com/caitlynrandels-del/Oroboro)
+- **Metastatic Cascade Analysis** (1.21M-run refined study): https://github.com/caitlynrandels-del/metastatic-cascade-analysis
 
 See also the main [Oroboro](https://github.com/caitlynrandels-del/Oroboro) repository.
