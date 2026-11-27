@@ -114,14 +114,25 @@ class OroboroRelationalSim {
     this.nexus = nexus;
   }
 
-  processIndependent(sectorId) {
+  // Deterministic delta reconciliation (replaces the old Math.random() * 0.1 stub).
+  // delta = how far a part's reduced local copy has drifted from the Nexus registry
+  // (the whole-system record): relative flight-count gap + 0.1 if status disagrees.
+  static computeDelta(local, whole) {
+    if (!local || !whole) return 0;
+    const lf = local.flights || 0, wf = whole.flights || 0;
+    const gap = Math.abs(lf - wf) / Math.max(1, wf);
+    return gap + (local.status !== whole.status ? 0.1 : 0);
+  }
+
+  processIndependent(sectorId, localCopy) {
     const state = this.nexus.getIndependentState(sectorId);
-    // Simulate local processing that would match whole-system result
+    const whole = this.nexus.registry.get(sectorId);
+    const local = localCopy || (state ? state.local : null);
     return {
       sectorId,
       processed: true,
-      localOutcome: state,
-      delta: Math.random() * 0.1  // small reconciliation delta
+      localOutcome: state ? { ...state, local } : state,
+      delta: OroboroRelationalSim.computeDelta(local, whole)
     };
   }
 
@@ -136,7 +147,70 @@ class OroboroRelationalSim {
   }
 }
 
+// Conjunctive pipeline: every component on ONE loop, each feeding the next.
+//   Dictator -> Transcriber -> Levy -> Nexus (register + telemeter)
+//   -> RelationalSim parts (state reduction, deterministic delta)
+//   -> mesh consensus (isolate the most-drifted part when incoherent)
+//   -> damped pressure from Levy + delta (homeostasis) -> next tick's criticality gate
+//   -> Genesis mirror closes the history back to origin.
+class OroboroPipeline {
+  constructor({ alpha = 0.35, gain = 1.0, restLevy = 10, pressureLimit = 0.5 } = {}) {
+    this.nexus = new OroboroNexus();
+    this.transcriber = new OroboroTranscriber();
+    this.dictator = new OroboroDictator(this.transcriber);
+    this.levy = new OroboroLevy(this.transcriber);
+    this.genesis = new OroboroGenesis();
+    this.sim = new OroboroRelationalSim(this.nexus);
+    this.alpha = alpha; this.gain = gain; this.restLevy = restLevy; this.pressureLimit = pressureLimit;
+    this.pressure = 0;
+    this.tickCount = 0;
+    this.dictator.start();
+    this.nexus.register('genesis', { status: 'origin', flights: 0, mirror: this.genesis.mirror([]) });
+  }
+
+  // radio: array of raw transcript strings; localCopies: { sectorId: {flights, status} }
+  tick(radio = [], localCopies = {}) {
+    this.tickCount += 1;
+    // 1) Dictator -> Transcriber -> Levy
+    let pulse = 0;
+    for (const raw of radio) {
+      const entry = this.dictator.processAudioText(raw);
+      if (entry) pulse += this.levy.assess(entry);
+    }
+    // 2) Damped pressure (delta reconciliation of the Levy pulse vs rest load)
+    const spike = Math.max(0, (pulse - this.restLevy) / Math.max(1, this.restLevy));
+    this.pressure = (1 - this.alpha) * this.pressure + this.alpha * this.gain * spike;
+    // 3) Parts process independently against the Nexus whole-system record
+    const ids = Array.from(this.nexus.registry.keys()).filter(id => id !== 'genesis');
+    const outcomes = ids.map(id => this.sim.processIndependent(id, localCopies[id]));
+    this.nexus.metrics.deltas += outcomes.length;
+    // 4) Coherence threshold tightens under pressure (homeostasis feeding the gate)
+    const limit = Math.max(0.05, 0.2 - 0.15 * Math.min(1, this.pressure / this.pressureLimit));
+    const coherent = outcomes.every(o => o.delta < limit);
+    // 5) Mesh consensus: isolate the most-drifted part if incoherent; others continue
+    let isolated = null;
+    if (!coherent && outcomes.length) {
+      const worst = outcomes.reduce((a, b) => (b.delta > a.delta ? b : a));
+      isolated = worst.sectorId;
+      const rec = this.nexus.registry.get(isolated);
+      if (rec) this.nexus.registry.set(isolated, { ...rec, status: 'ISOLATED' });
+      this.nexus.metrics.isolations += 1;
+      this.transcriber.ingest(`isolate ${isolated} (delta ${worst.delta.toFixed(3)})`, 'pipeline');
+    }
+    const kept = outcomes.filter(o => o.sectorId !== isolated);
+    const recombined = this.sim.recombine(kept);
+    this.nexus.metrics.reconciliations += 1;
+    // 6) Nexus telemetry + Genesis closure
+    const mirror = this.genesis.mirror(this.transcriber.chronicles.length);
+    const summary = { tick: this.tickCount, pulse, pressure: this.pressure, limit, coherent, isolated,
+                      observable: recombined.observable, levyTotal: this.levy.totalWeight, genesis: mirror.origin };
+    this.nexus.telemeter('tick', summary);
+    this.nexus.archive.push({ type: 'tick', ...summary });
+    return summary;
+  }
+}
+
 // Export for app use
 if (typeof module !== 'undefined') {
-  module.exports = { OroboroNexus, OroboroTranscriber, OroboroDictator, OroboroLevy, OroboroGenesis, OroboroRelationalSim };
+  module.exports = { OroboroNexus, OroboroTranscriber, OroboroDictator, OroboroLevy, OroboroGenesis, OroboroRelationalSim, OroboroPipeline };
 }

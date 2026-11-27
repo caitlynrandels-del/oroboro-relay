@@ -64,8 +64,14 @@ class OroboroTranscriber: ObservableObject {
 }
 
 class OroboroRelationalSim {
+    // Whole-system record. Delta is deterministic: drift of a part's local copy from the
+    // Nexus registry (relative flight gap + 0.1 on status mismatch). Replaces Double.random.
+    var nexus: OroboroNexus?
+
     func processIndependent(sector: Sector) -> (local: Sector, delta: Double) {
-        (sector, Double.random(in: 0...0.15))
+        guard let whole = nexus?.registry[sector.id] else { return (sector, 0) }
+        let gap = Double(abs(sector.flights - whole.flights)) / Double(max(1, whole.flights))
+        return (sector, gap + (sector.status != whole.status ? 0.1 : 0))
     }
     
     func recombine(_ outcomes: [(local: Sector, delta: Double)]) -> Bool {
@@ -122,6 +128,7 @@ class OroboroRelayViewModel: ObservableObject {
     
     init() {
         sectors.forEach { nexus.register($0) }
+        sim.nexus = nexus
         generateFlights()
         addTranscript("Oroboro Relay online. Independent sector processing active.")
         addTranscript("Dictator ready. Chronicle ledger open. Genesis origin confirmed.")
